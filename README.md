@@ -113,6 +113,26 @@ If you don't have the `gcloud` CLI installed, you can deploy directly from your 
 - `GOOGLE_CLOUD_LOCATION`: (Optional) Region for Gemini models, defaults to `global`.
 - `CLAUDE_LOCATION`: (Optional) Region for Claude models, defaults to `global` (Note: some Claude models may require specific regions like `us-east5`).
 
+### Optional: Firestore for Multi-Turn Tool Calling
+
+> [!NOTE]
+> **This step is only required if you use Gemini 3.0+ models with multi-turn tool calling** (i.e., the model calls a tool, you send the result back, and the model calls another tool). If you only use the proxy for regular AI chat, you can skip this entirely.
+
+Gemini 3.0+ models return an encrypted `thought_signature` during tool calls that must be echoed back in subsequent requests. This proxy caches them in Firestore so it works seamlessly across Cloud Run's stateless instances.
+
+**Setup:**
+1. Go to [Firestore](https://console.cloud.google.com/firestore) in the Google Cloud Console.
+2. Create a **new database** (not the default one) with the ID `thought-signature-cache`.
+3. Choose **Native mode** and any region.
+4. Grant your Cloud Run service account the **Cloud Datastore User** (`roles/datastore.user`) role:
+   ```bash
+   gcloud projects add-iam-policy-binding $PROJECT_ID \
+     --member="serviceAccount:$SERVICE_ACCOUNT" \
+     --role="roles/datastore.user"
+   ```
+
+That's it. The proxy will automatically detect and use the Firestore database. If Firestore is not configured, the proxy still works normally — only multi-turn tool calling with `thought_signature` will be affected.
+
 ### 5. Usage
 
 Once deployed, Cloud Run will provide you with a public URL (e.g., `https://vertex-ai-proxy-something.a.run.app`).

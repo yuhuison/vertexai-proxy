@@ -156,7 +156,7 @@ async def stream_gemini_response(
                                 "arguments": tool_call.function.arguments
                             }
                             # Note: thought_signature is an internal Gemini field, not sent to the client
-                            # Already stored to Firestore via store_thought_signature()
+                            # Already stored via store_thought_signature()
                         }
                         
                         delta = {
