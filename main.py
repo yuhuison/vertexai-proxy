@@ -24,7 +24,6 @@ from config import (
 )
 from models import (
     ChatCompletionRequest,
-    ResponseRequest,
     ModelObject,
     ModelsResponse,
 )
@@ -32,7 +31,6 @@ from models import (
 # Handlers
 from handlers.gemini import handle_gemini_request, set_gemini_client
 from handlers.claude import handle_claude_request, set_claude_client
-from handlers.responses import handle_responses_request
 
 
 # ============================================================================
@@ -86,8 +84,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Vertex AI to OpenAI Proxy",
-    description="OpenAI-compatible proxy supporting Gemini and Claude on Vertex AI, including tool calling and Responses API support",
-    version="2.2.0",
+    description="OpenAI-compatible proxy supporting Gemini and Claude on Vertex AI",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -132,9 +130,9 @@ async def root():
     return {
         "message": "Vertex AI to OpenAI Proxy",
         "status": "running",
-        "version": "2.2.0",
+        "version": "3.0.0",
         "supported_providers": ["google/gemini", "anthropic/claude"],
-        "features": ["chat", "streaming", "tool_calling", "structured_output", "responses_api"],
+        "features": ["chat", "streaming", "tool_calling", "structured_output"],
     }
 
 
@@ -181,20 +179,6 @@ async def chat_completions(
         return await handle_claude_request(request, model_name)
     else:
         return await handle_gemini_request(request, model_name)
-
-
-# ============================================================================
-# Responses API (New Standard)
-# ============================================================================
-
-@app.post("/v1/responses")
-async def create_response(
-    request: ResponseRequest,
-    authorization: Optional[str] = Header(None),
-):
-    """Responses API - OpenAI's new standard, automatically routes to Gemini or Claude"""
-    verify_api_key(authorization)
-    return await handle_responses_request(request, authorization)
 
 
 # ============================================================================

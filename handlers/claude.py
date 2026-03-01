@@ -3,6 +3,7 @@ Claude Request Handler Module
 """
 import json
 import time
+import traceback
 import uuid
 from typing import AsyncGenerator
 
@@ -100,6 +101,7 @@ async def handle_claude_request(request: ChatCompletionRequest, model_name: str)
             
     except Exception as e:
         print(f"Claude error: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -240,8 +242,22 @@ def create_claude_response(response, model_name: str) -> dict:
     
     content = ""
     tool_calls = []
-    
+
     # Extract content and tool calls
+    if not response.content:
+        return {
+            "id": request_id,
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "model": model_name,
+            "choices": [{
+                "index": 0,
+                "message": {"role": "assistant", "content": None},
+                "finish_reason": "stop",
+            }],
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        }
+
     for block in response.content:
         if hasattr(block, 'type'):
             if block.type == 'text':

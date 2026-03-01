@@ -4,6 +4,7 @@ Gemini Request Handler Module
 import base64
 import json
 import time
+import traceback
 import uuid
 from typing import AsyncGenerator, List
 
@@ -96,6 +97,7 @@ async def handle_gemini_request(request: ChatCompletionRequest, model_name: str)
             
     except Exception as e:
         print(f"Gemini error: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -120,7 +122,7 @@ async def stream_gemini_response(
         
         for chunk in response_stream:
             # Check for function_call
-            if chunk.candidates and chunk.candidates[0].content.parts:
+            if chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts:
                 for part in chunk.candidates[0].content.parts:
                     if hasattr(part, 'function_call') and part.function_call:
                         # ⭐ Each Part independently checks thought_signature
@@ -215,8 +217,8 @@ def create_gemini_response(response, model_name: str) -> dict:
     
     content = ""
     tool_calls = []
-    
-    if response.candidates and response.candidates[0].content.parts:
+
+    if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
         for part in response.candidates[0].content.parts:
             if hasattr(part, 'function_call') and part.function_call:
                 # ⭐ Each Part independently checks thought_signature
@@ -261,9 +263,14 @@ def create_gemini_response(response, model_name: str) -> dict:
     if tool_calls:
         message["tool_calls"] = tool_calls
     
-    # Calculate tokens (Estimated)
-    prompt_tokens = sum(len(str(c)) for c in response.candidates[0].content.parts) // 4 if response.candidates else 0
-    completion_tokens = len(content) // 4 + len(json.dumps(tool_calls)) // 4
+    # Use Gemini API's usage_metadata for accurate token counts
+    usage = getattr(response, 'usage_metadata', None)
+    if usage:
+        prompt_tokens = getattr(usage, 'prompt_token_count', 0) or 0
+        completion_tokens = getattr(usage, 'candidates_token_count', 0) or 0
+    else:
+        prompt_tokens = 0
+        completion_tokens = 0
     
     return {
         "id": request_id,

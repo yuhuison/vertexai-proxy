@@ -1,6 +1,6 @@
 # Vertex AI to OpenAI Proxy
 
-[![Version](https://img.shields.io/badge/version-2.2.0-blue)]()
+[![Version](https://img.shields.io/badge/version-3.0.0-blue)]()
 [![Python](https://img.shields.io/badge/python-3.11+-green)]()
 
 OpenAI-compatible proxy service supporting Google Gemini and Anthropic Claude on Vertex AI.
@@ -10,7 +10,6 @@ OpenAI-compatible proxy service supporting Google Gemini and Anthropic Claude on
 | Feature | Status |
 |------|------|
 | Chat Completions API (`/v1/chat/completions`) | ✅ |
-| Responses API (`/v1/responses`) | ✅ |
 | Streaming Responses (SSE) | ✅ |
 | Tool Calling (Function Calling) | ✅ |
 | Structured Output (JSON Schema) | ✅ |
@@ -30,8 +29,7 @@ vertexai-proxy/
 ├── handlers/               # Request handlers
 │   ├── __init__.py
 │   ├── gemini.py           # Gemini model handling
-│   ├── claude.py           # Claude model handling
-│   └── responses.py        # Responses API handling
+│   └── claude.py           # Claude model handling
 │
 └── converters/             # Format converters
     ├── __init__.py
@@ -63,7 +61,7 @@ vertexai-proxy/
 - FastAPI application initialization.
 - CORS middleware configuration.
 - API Key authentication.
-- Route definitions (`/v1/chat/completions`, `/v1/responses`, `/v1/models`).
+- Route definitions (`/v1/chat/completions`, `/v1/models`).
 - Client initialization (lifespan).
 
 #### `config.py` - Configuration Center
@@ -96,12 +94,6 @@ ChatMessage         # Chat message (role, content, tool_calls, thought_signature
 
 # Request
 ChatCompletionRequest   # /v1/chat/completions request
-ResponseRequest         # /v1/responses request
-
-# Response
-Response            # /v1/responses response
-ResponseOutputItem  # Response output item
-ResponseUsage       # Usage statistics
 ```
 
 #### `handlers/gemini.py` - Gemini Handler
@@ -114,12 +106,6 @@ ResponseUsage       # Usage statistics
 - `handle_claude_request()` - Main handler function.
 - `stream_claude_response()` - Streaming response generation.
 - `create_claude_response()` - Non-streaming response construction.
-
-#### `handlers/responses.py` - Responses API Handler
-- `convert_response_request_to_chat()` - Responses → Chat Completions conversion.
-- `convert_chat_response_to_response()` - Chat Completions → Responses conversion.
-- `stream_responses_format()` - Streaming format conversion.
-- `handle_responses_request()` - Main handler function.
 
 #### `converters/messages.py` - Message Conversion
 - `convert_messages_to_genai()` - OpenAI → Gemini message format.
@@ -166,28 +152,6 @@ if msg_thought_signature:
 6. Client executes the tool and sends a tool message.
 7. Proxy converts the tool message to a function_response.
 8. Loop until the model returns the final response.
-```
-
-### 3. Responses API Compatibility
-
-The Responses API is a new standard introduced by OpenAI in 2025. The proxy supports it through internal conversion:
-
-```python
-# Responses API Format
-{
-  "model": "gemini-3-flash-preview",
-  "input": "Hello",
-  "instructions": "You are helpful"
-}
-
-# Internally converted to Chat Completions
-{
-  "model": "gemini-3-flash-preview",
-  "messages": [
-    {"role": "system", "content": "You are helpful"},
-    {"role": "user", "content": "Hello"}
-  ]
-}
 ```
 
 ## Environment Variables

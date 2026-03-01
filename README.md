@@ -20,7 +20,7 @@ Google's official API uses the Gemini API format, not the OpenAI format. While G
 
 ## Features
 
-- **Full OpenAI API Compatibility**: Drop-in replacement for `/v1/chat/completions` and `/v1/responses`.
+- **Full OpenAI API Compatibility**: Drop-in replacement for `/v1/chat/completions`.
 - **Streaming, Tools, Structured Output, Multimodal**: Full support for SSE streaming, Function Calling, JSON Schema outputs, and image inputs.
 - **Gemini 3.0+ `thought_signature` Handled**: Automatically extracts, caches, and passes `thought_signature` so multi-turn tool calling just works.
 - **Vertex AI ADC Auth**: Uses Application Default Credentials on Cloud Run — no API keys to manage for Google services.
