@@ -74,32 +74,25 @@ def convert_messages_to_genai(messages: List[ChatMessage]) -> tuple[Optional[str
                     parts.append(Part.from_text(text=content))
             
             # Add function calls
-            for idx, tool_call in enumerate(msg.tool_calls):
+            for tool_call in msg.tool_calls:
                 try:
                     args = json.loads(tool_call.function.arguments) if tool_call.function.arguments else {}
                 except (json.JSONDecodeError, TypeError):
                     args = {}
-                
-                # ⭐ Get thought_signature from server cache (only on the first tool_call)
-                if idx == 0:
-                    from thought_signature_cache import get_thought_signature
-                    thought_signature_bytes = get_thought_signature(tool_call.id)
-                    
-                    if thought_signature_bytes:
-                        from google.genai.types import FunctionCall as GeminiFunctionCall
-                        fc_part = Part(
-                            function_call=GeminiFunctionCall(
-                                name=tool_call.function.name,
-                                args=args
-                            ),
-                            thought_signature=thought_signature_bytes
-                        )
-                        parts.append(fc_part)
-                    else:
-                        parts.append(Part.from_function_call(
+
+                # Use thought_signature from client if provided
+                ts = tool_call.thought_signature or msg.thought_signature
+                if ts:
+                    from google.genai.types import FunctionCall as GeminiFunctionCall
+                    ts_bytes = base64.b64decode(ts) if isinstance(ts, str) else ts
+                    fc_part = Part(
+                        function_call=GeminiFunctionCall(
                             name=tool_call.function.name,
                             args=args
-                        ))
+                        ),
+                        thought_signature=ts_bytes
+                    )
+                    parts.append(fc_part)
                 else:
                     parts.append(Part.from_function_call(
                         name=tool_call.function.name,

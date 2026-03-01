@@ -22,7 +22,7 @@ Google's official API uses the Gemini API format, not the OpenAI format. While G
 
 - **Full OpenAI API Compatibility**: Drop-in replacement for `/v1/chat/completions`.
 - **Streaming, Tools, Structured Output, Multimodal**: Full support for SSE streaming, Function Calling, JSON Schema outputs, and image inputs.
-- **Gemini 3.0+ `thought_signature` Handled**: Automatically extracts, caches, and passes `thought_signature` so multi-turn tool calling just works.
+- **Gemini 3.0+ `thought_signature` Handled**: Extracts `thought_signature` and returns it to the client in tool_calls for multi-turn tool calling.
 - **Vertex AI ADC Auth**: Uses Application Default Credentials on Cloud Run — no API keys to manage for Google services.
 
 > [!CAUTION]
@@ -113,26 +113,6 @@ If you don't have the `gcloud` CLI installed, you can deploy directly from your 
 - `GOOGLE_CLOUD_LOCATION`: (Optional) Region for Gemini models, defaults to `global`.
 - `CLAUDE_LOCATION`: (Optional) Region for Claude models, defaults to `global` (Note: some Claude models may require specific regions like `us-east5`).
 
-### Optional: Firestore for Multi-Turn Tool Calling
-
-> [!NOTE]
-> **This step is only required if you use Gemini 3.0+ models with multi-turn tool calling** (i.e., the model calls a tool, you send the result back, and the model calls another tool). If you only use the proxy for regular AI chat, you can skip this entirely.
-
-Gemini 3.0+ models return an encrypted `thought_signature` during tool calls that must be echoed back in subsequent requests. This proxy caches them in Firestore so it works seamlessly across Cloud Run's stateless instances.
-
-**Setup:**
-1. Go to [Firestore](https://console.cloud.google.com/firestore) in the Google Cloud Console.
-2. Create a **new database** (not the default one) with the ID `thought-signature-cache`.
-3. Choose **Native mode** and any region.
-4. Grant your Cloud Run service account the **Cloud Datastore User** (`roles/datastore.user`) role:
-   ```bash
-   gcloud projects add-iam-policy-binding $PROJECT_ID \
-     --member="serviceAccount:$SERVICE_ACCOUNT" \
-     --role="roles/datastore.user"
-   ```
-
-That's it. The proxy will automatically detect and use the Firestore database. If Firestore is not configured, the proxy still works normally — only multi-turn tool calling with `thought_signature` will be affected.
-
 ### 5. Usage
 
 Once deployed, Cloud Run will provide you with a public URL (e.g., `https://vertex-ai-proxy-something.a.run.app`).
@@ -148,6 +128,70 @@ curl -X POST https://your-cloud-run-url.a.run.app/v1/chat/completions \
     "model": "gemini-3-flash-preview",
     "messages": [{"role": "user", "content": "Hello! How can you assist me today?"}]
   }'
+```
+
+## Gemini 3.0+ Multi-Turn Tool Calling (`thought_signature`)
+
+Gemini 3.0+ models return an encrypted `thought_signature` field during tool calls. This field **must** be passed back in subsequent requests for multi-turn tool calling to work. The proxy handles this transparently:
+
+1. The proxy extracts `thought_signature` from Gemini's response and includes it in the `tool_calls` field.
+2. The client saves and sends it back as part of the assistant message in the next request.
+3. The proxy reads it from the client's message and passes it to Gemini.
+
+### Using the OpenAI Python SDK
+
+The OpenAI Python SDK (v1+) uses `extra="allow"` on all its Pydantic models, which means **`thought_signature` is automatically preserved and round-tripped without any extra code**. Just use the standard tool calling pattern:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://your-cloud-run-url.a.run.app/v1",
+    api_key="your-custom-secret-key",
+)
+
+tools = [{"type": "function", "function": {"name": "get_weather", "parameters": {...}}}]
+messages = [{"role": "user", "content": "What's the weather in Tokyo?"}]
+
+response = client.chat.completions.create(
+    model="gemini-3-flash-preview", messages=messages, tools=tools
+)
+
+message = response.choices[0].message
+
+if message.tool_calls:
+    # Simply append the message object — thought_signature is preserved automatically
+    messages.append(message)
+
+    for tool_call in message.tool_calls:
+        result = call_your_function(tool_call.function.name, tool_call.function.arguments)
+        messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": result})
+
+    # Send the follow-up request — thought_signature is passed back transparently
+    response = client.chat.completions.create(
+        model="gemini-3-flash-preview", messages=messages, tools=tools
+    )
+```
+
+> [!TIP]
+> **No special handling needed.** As long as you append the original `message` object (or its `.model_dump()` dict) to your messages list, the SDK will automatically include `thought_signature` in the next request. This works because the OpenAI SDK's Pydantic models are configured to preserve unknown fields.
+
+### Using Other Clients / Languages
+
+If your client or SDK does **not** preserve unknown fields, you need to manually:
+1. Extract `thought_signature` from each `tool_calls` item in the response.
+2. Include it when constructing the assistant message for the next request.
+
+```json
+{
+  "role": "assistant",
+  "tool_calls": [{
+    "id": "call_abc123",
+    "type": "function",
+    "function": {"name": "get_weather", "arguments": "{\"city\": \"Tokyo\"}"},
+    "thought_signature": "BASE64_STRING_FROM_RESPONSE"
+  }]
+}
 ```
 
 ## Adding New Models

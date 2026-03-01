@@ -100,7 +100,7 @@ ChatCompletionRequest   # /v1/chat/completions request
 - `handle_gemini_request()` - Main handler function.
 - `stream_gemini_response()` - Streaming response generation.
 - `create_gemini_response()` - Non-streaming response construction.
-- **Important**: Extracts and handles `thought_signature` (required for Gemini 3.0+ multi-turn tool calling).
+- **Important**: Extracts `thought_signature` and returns it to client (required for Gemini 3.0+ multi-turn tool calling).
 
 #### `handlers/claude.py` - Claude Handler
 - `handle_claude_request()` - Main handler function.
@@ -112,7 +112,7 @@ ChatCompletionRequest   # /v1/chat/completions request
 - `convert_messages_to_claude()` - OpenAI → Claude message format.
 - Handles `tool` role messages (tool response).
 - Handles `tool_calls` in `assistant` messages.
-- **Important**: `thought_signature` base64 encoding/decoding.
+- Reads `thought_signature` from client's tool_calls and passes to Gemini.
 
 #### `converters/tools.py` - Tool Conversion
 - `convert_tools_to_gemini()` - OpenAI → Gemini tool definition.
@@ -126,20 +126,7 @@ ChatCompletionRequest   # /v1/chat/completions request
 
 ### 1. `thought_signature` (Gemini 3.0+)
 
-Gemini 3.0 models return an encrypted `thought_signature` during tool calls, which must be returned as-is in subsequent requests.
-
-```python
-# Response Extraction (handlers/gemini.py)
-if hasattr(part, 'thought_signature') and part.thought_signature:
-    ts = part.thought_signature
-    if isinstance(ts, bytes):
-        thought_signature = base64.b64encode(ts).decode('utf-8')
-
-# Request Sending (converters/messages.py)
-if msg_thought_signature:
-    ts_bytes = base64.b64decode(msg_thought_signature)
-    parts.append(Part.from_text(text="", thought_signature=ts_bytes))
-```
+Gemini 3.0 models return an encrypted `thought_signature` during tool calls, which must be returned as-is in subsequent requests. The proxy extracts it and includes it in the response `tool_calls` — the client is responsible for saving it and passing it back in the next request.
 
 ### 2. Tool Calling Flow
 
@@ -212,7 +199,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 ### `thought_signature` Error
 **Error**: `function call is missing a thought_signature`
 **Reason**: `thought_signature` was not passed back during multi-turn tool calling.
-**Solution**: Ensure the client saves and returns the full `tool_calls` object.
+**Solution**: Ensure the client saves the `thought_signature` field from the response's `tool_calls` and includes it when sending back the assistant message.
 
 ### Model Not Supported
 **Error**: `Model not found`

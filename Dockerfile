@@ -9,14 +9,12 @@ RUN pip install --no-cache-dir \
     uvicorn \
     pydantic \
     google-genai \
-    google-cloud-firestore \
     "anthropic[vertex]"
 
 # Copy source code
 COPY main.py /app/main.py
 COPY config.py /app/config.py
 COPY models.py /app/models.py
-COPY thought_signature_cache.py /app/thought_signature_cache.py
 COPY handlers/ /app/handlers/
 COPY converters/ /app/converters/
 
