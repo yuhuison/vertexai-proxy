@@ -20,9 +20,11 @@ GEMINI_MODEL_MAPPING = {
     "google/gemini-3-pro-preview": "gemini-3-pro-preview",
     "google/gemini-3-flash-preview": "gemini-3-flash-preview",
     "google/gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
+    "google/gemini-3.1-flash-lite-preview": "gemini-3.1-flash-lite-preview",
     "gemini-3-pro-preview": "gemini-3-pro-preview",
     "gemini-3-flash-preview": "gemini-3-flash-preview",
     "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
+    "google/gemini-3.1-flash-lite-preview": "gemini-3.1-flash-lite-preview",
     
     # Gemini 2.5 series
     "google/gemini-2.5-pro": "gemini-2.5-pro",
