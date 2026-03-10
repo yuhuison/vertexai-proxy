@@ -9,7 +9,7 @@ import uuid
 from typing import AsyncGenerator, List
 
 from google import genai
-from google.genai.types import GenerateContentConfig, Content
+from google.genai.types import GenerateContentConfig, Content, ThinkingConfig
 
 from config import GEMINI_MODEL_MAPPING, SAFETY_SETTINGS
 from models import ChatCompletionRequest, ToolCall
@@ -72,6 +72,10 @@ async def handle_gemini_request(request: ChatCompletionRequest, model_name: str)
             tool_config = convert_tool_choice_to_gemini(request.tool_choice)
             if tool_config:
                 config_kwargs["tool_config"] = tool_config
+
+    # Force reasoning effort to LOW for Pro models
+    if "pro" in genai_model.lower():
+        config_kwargs["thinking_config"] = ThinkingConfig(thinking_level="LOW")
 
     config = GenerateContentConfig(**config_kwargs)
 
